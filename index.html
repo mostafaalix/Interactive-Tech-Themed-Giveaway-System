@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>نظام سحب الجوائز - تطابق كامل</title>
+    <style>
+        /* إعدادات الخلفية والألوان */
+        :root {
+            --bg-color: #041624;
+            --tech-blue: #00d4ff;
+            --sidebar-bg: rgba(255, 255, 255, 0.05);
+            --button-bg: #f0f0f0;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #0d3b4d 0%, #041624 100%);
+            color: #e0f7fa; font-family: Arial, sans-serif; overflow: hidden;
+        }
+
+        /* حاوية التصميم */
+        .wrapper { display: flex; width: 100%; height: 100%; position: relative; }
+
+        /* شريط التحكم الجانبي */
+        .sidebar {
+            width: 70px; background: var(--sidebar-bg);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex; flex-direction: column; align-items: center;
+            padding: 15px 0; z-index: 10;
+        }
+
+        .sidebar button {
+            width: 45px; height: 35px; margin: 5px 0;
+            background: var(--button-bg); border: 1px solid #999;
+            border-radius: 4px; color: #333; font-weight: bold;
+            cursor: pointer; font-size: 14px; transition: 0.2s;
+        }
+
+        .sidebar button:hover { background: #fff; transform: scale(1.05); }
+
+        .sidebar .special-btn {
+            background: #777; color: white; margin-top: 10px; font-size: 12px;
+        }
+
+        /* منطقة الرسم والأسماء */
+        #techCanvas {
+            position: absolute; top: 0; left: 0; z-index: 1;
+        }
+
+        .names-layer {
+            position: absolute; top: 0; left: 70px; right: 0; bottom: 0;
+            z-index: 5; pointer-events: none;
+        }
+
+        .name-tag {
+            position: absolute; font-size: 12px; color: rgba(200, 230, 255, 0.6);
+            white-space: nowrap; transition: all 1s ease-in-out;
+        }
+
+        /* تأثير الفائز */
+        .winner {
+            color: #fff !important; font-size: 28px !important;
+            text-shadow: 0 0 15px var(--tech-blue), 0 0 30px var(--tech-blue);
+            z-index: 100 !important; font-weight: bold;
+        }
+
+        .dimmed { opacity: 0.1; filter: blur(2px); }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <div class="sidebar">
+        <button onclick="winnerLimit=10">10</button>
+        <button onclick="winnerLimit=8">8</button>
+        <button onclick="winnerLimit=5">5</button>
+        <button onclick="winnerLimit=4">4</button>
+        <button onclick="winnerLimit=3">3</button>
+        <button onclick="winnerLimit=2">2</button>
+        <button onclick="winnerLimit=1">1</button>
+        <button class="special-btn" onclick="runDraw()">RUN</button>
+        <button class="special-btn" onclick="resetDraw()">Clear</button>
+    </div>
+
+    <canvas id="techCanvas"></canvas>
+
+    <div class="names-layer" id="namesContainer"></div>
+</div>
+
+<script>
+    const canvas = document.getElementById('techCanvas');
+const ctx = canvas.getContext('2d');
+const namesContainer = document.getElementById('namesContainer');
+let winnerLimit = 1;
+
+const rawNames = [
+    "Ahmed Al-Saegh", "Fatima Al-Jenaidi", "Zahra Jasim", "Rajesh Kumar", 
+    "Muna Abdulhusain", "Ebrahim Khalil", "S.Hussain Kadhim", "Ali Hasan",
+    "Mariam Yusuf", "Mohammed Salman", "Hassan Al-Aradi", "Sayed Ali Baqer",
+    "Faisal Hasan", "Zainab Khalifa", "Suad Mohamed", "Abdulaziz Abdulla",
+    "Eman Ebrahim", "Dana Saeed", "Jaffar Abdali", "Nader Ali", "Hamad Abdulla"
+];
+let namesList = [...rawNames, ...rawNames, ...rawNames]; 
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    drawTechBackground();
+}
+
+function drawTechBackground() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'rgba(0, 212, 255, 0.15)';
+    ctx.lineWidth = 1;
+
+    // رسم الخطوط التقنية مثل الصورة الأصلية
+    for(let i=0; i<8; i++) {
+        let x = Math.random() * canvas.width;
+        let y = Math.random() * canvas.height;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 100, y - 100);
+        ctx.lineTo(x + 400, y - 100);
+        ctx.stroke();
+        
+        ctx.fillStyle = '#00d4ff';
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function initNames() {
+    namesContainer.innerHTML = '';
+    namesList.forEach(name => {
+        const div = document.createElement('div');
+        div.className = 'name-tag';
+        div.innerText = name;
+        resetPosition(div);
+        namesContainer.appendChild(div);
+    });
+}
+
+function resetPosition(el) {
+    el.style.left = (Math.random() * 80 + 5) + '%';
+    el.style.top = (Math.random() * 85 + 5) + '%';
+    el.style.transform = 'none';
+}
+
+function runDraw() {
+    const allNames = document.querySelectorAll('.name-tag');
+    allNames.forEach(n => {
+        n.classList.remove('winner', 'dimmed');
+        n.style.transition = "all 1s ease-in-out";
+    });
+
+    const shuffled = Array.from(allNames).sort(() => 0.5 - Math.random());
+    const winners = shuffled.slice(0, winnerLimit);
+
+    // حسابات التوزيع للفائزين (Grid System)
+    const columns = winnerLimit > 5 ? 2 : 1; // إذا زاد العدد عن 5، اجعلهم في صفين
+    const rows = Math.ceil(winnerLimit / columns);
+
+    winners.forEach((n, index) => {
+        n.classList.add('winner');
+        
+        // حساب الموقع لضمان عدم التداخل
+        const col = index % columns;
+        const row = Math.floor(index / columns);
+        
+        const xPos = (col + 1) * (100 / (columns + 1));
+        const yPos = (row + 1) * (100 / (rows + 1));
+
+        n.style.left = xPos + '%';
+        n.style.top = yPos + '%';
+        n.style.transform = 'translate(-50%, -50%)';
+    });
+
+    // تعتيم البقية
+    allNames.forEach(n => {
+        if(!winners.includes(n)) n.classList.add('dimmed');
+    });
+}
+
+function resetDraw() {
+    const allNames = document.querySelectorAll('.name-tag');
+    allNames.forEach(n => {
+        n.classList.remove('winner', 'dimmed');
+        resetPosition(n);
+    });
+}
+
+window.addEventListener('resize', resize);
+resize();
+initNames();
+    // const canvas = document.getElementById('techCanvas');
+    // const ctx = canvas.getContext('2d');
+    // const namesContainer = document.getElementById('namesContainer');
+    // let winnerLimit = 1;
+
+    // // قائمة الأسماء (يمكنك استبدالها بأسماء حقيقية)
+    // const rawNames = [
+    //     "Ahmed Al-Saegh", "Fatima Al-Jenaidi", "Zahra Jasim", "Rajesh Kumar", 
+    //     "Muna Abdulhusain", "Ebrahim Khalil", "S.Hussain Kadhim", "Ali Hasan",
+    //     "Mariam Yusuf", "Mohammed Salman", "Hassan Al-Aradi", "Sayed Ali Baqer",
+    //     "Faisal Hasan", "Zainab Khalifa", "Suad Mohamed", "Abdulaziz Abdulla",
+    //     "Eman Ebrahim", "Dana Saeed", "Jaffar Abdali", "Nader Ali", "Hamad Abdulla"
+    // ];
+    // let namesList = [...rawNames, ...rawNames, ...rawNames, ...rawNames]; // تكرار لملء الشاشة
+
+    // // ضبط حجم الكانفس
+    // function resize() {
+    //     canvas.width = window.innerWidth;
+    //     canvas.height = window.innerHeight;
+    //     drawTechBackground();
+    // }
+
+    // // رسم الخطوط التقنية والنقاط (مطابق للصورة)
+    // function drawTechBackground() {
+    //     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    //     ctx.strokeStyle = 'rgba(0, 212, 255, 0.2)';
+    //     ctx.lineWidth = 1.5;
+
+    //     const points = [
+    //         {x: 100, y: 100}, {x: 400, y: 150}, {x: 700, y: 80},
+    //         {x: 200, y: 500}, {x: 600, y: 400}, {x: 800, y: 600}
+    //     ];
+
+    //     points.forEach(p => {
+    //         ctx.beginPath();
+    //         ctx.moveTo(p.x, p.y);
+    //         ctx.lineTo(p.x + 50, p.y - 50);
+    //         ctx.lineTo(p.x + 300, p.y - 50);
+    //         ctx.stroke();
+
+    //         // رسم النقاط المضيئة
+    //         ctx.fillStyle = '#00d4ff';
+    //         ctx.shadowBlur = 10;
+    //         ctx.shadowColor = '#00d4ff';
+    //         ctx.beginPath();
+    //         ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    //         ctx.fill();
+    //     });
+    // }
+
+    // // إضافة الأسماء وتوزيعها
+    // function initNames() {
+    //     namesContainer.innerHTML = '';
+    //     namesList.forEach(name => {
+    //         const div = document.createElement('div');
+    //         div.className = 'name-tag';
+    //         div.innerText = name;
+    //         div.style.left = Math.random() * 85 + '%';
+    //         div.style.top = Math.random() * 90 + '%';
+    //         namesContainer.appendChild(div);
+    //     });
+    // }
+
+    // // منطق السحب
+    // function runDraw() {
+    //     const allNames = document.querySelectorAll('.name-tag');
+    //     allNames.forEach(n => n.classList.remove('winner', 'dimmed'));
+
+    //     // اختيار عشوائي
+    //     const shuffled = Array.from(allNames).sort(() => 0.5 - Math.random());
+    //     const winners = shuffled.slice(0, winnerLimit);
+
+    //     allNames.forEach(n => {
+    //         if(winners.includes(n)) {
+    //             n.classList.add('winner');
+    //             // نقل الفائز للمنتصف قليلاً
+    //             n.style.left = '50%';
+    //             n.style.top = '50%';
+    //             n.style.transform = 'translate(-50%, -50%)';
+    //         } else {
+    //             n.classList.add('dimmed');
+    //         }
+    //     });
+    // }
+
+    // function resetDraw() {
+    //     initNames();
+    // }
+
+    // window.addEventListener('resize', resize);
+    // resize();
+    // initNames();
+</script>
+
+</body>
+</html>
